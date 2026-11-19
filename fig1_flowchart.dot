@@ -1,0 +1,43 @@
+digraph G {
+  graph [rankdir=TB, fontname="Helvetica", fontsize=13, nodesep=0.22, ranksep=0.28, compound=true, newrank=true, pad=0.05];
+  node  [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=12, fillcolor="#eeeeee", color="#666666", margin="0.08,0.04"];
+  edge  [color="#444444", arrowsize=0.6, fontname="Helvetica", fontsize=11];
+
+  subgraph cluster_data { label="1  Data layer"; style="rounded,filled"; fillcolor="#f4f4f4"; color="#bbbbbb"; fontsize=13;
+    log  [label="Offer log\n18k interactions\n(uniform, p=1/8)"];
+    ctx  [label="Customer context\nhome, fuel, income,\nEV/PV, usage"];
+    rules[label="Eligibility rules\n(5 programmes)"];
+  }
+  subgraph cluster_pre { label="2  Pre-processing"; style="rounded,filled"; fillcolor="#f4f4f4"; color="#bbbbbb"; fontsize=13;
+    prep [label="Impute median\nwinsorise IQR, z-score"];
+    feat [label="Context vector x_t\n(d=26, Eq. 1)"];
+    mask [label="Eligible set\nE_t (Eq. 5)"];
+  }
+  subgraph cluster_lin { label="3  Proposed LinUCB next-best-action"; style="rounded,filled"; fillcolor="#fdecea"; color="#e0a39b"; fontsize=13;
+    node [fillcolor="#f6c9c3", color="#c0392b"];
+    theta[label="Per-arm ridge\nθ_a = A_a⁻¹ b_a (Eq. 3)"];
+    ucb  [label="UCB score p_a\nmean + α·width (Eq. 4)"];
+    match[shape=diamond, label="a_t equals\nlogged arm?", margin="0.02,0.02"];
+    sel  [label="a_t = argmax p_a\nover a ∈ E_t"];
+    upd  [label="Update A_a, b_a\n(Eq. 6)"];
+    skip [label="discard\nevent", fillcolor="#eeeeee", color="#888888"];
+  }
+  subgraph cluster_eval { label="4  Explanation and evaluation"; labelloc="b"; style="rounded,filled"; fillcolor="#f4f4f4"; color="#bbbbbb"; fontsize=13;
+    expl [label="Reason codes\nθ_a,j x_j (Eq. 7)", fillcolor="#f6c9c3", color="#c0392b"];
+    ope  [label="IPS / DR value\n(Eqs. 8-9), HR@1"];
+    base [label="Baselines: rules,\npopularity, ε-greedy"];
+  }
+  {rank=same; log; ctx; rules;}
+  {rank=same; prep; feat; mask;}
+  {rank=same; theta; ucb;}
+  {rank=same; match; sel;}
+  ucb -> sel [weight=10];
+
+  {rank=same; upd; skip;}
+  {rank=same; expl; ope; base;}
+  log -> prep; ctx -> prep; rules -> mask; prep -> feat; ctx -> mask [style=dashed];
+  feat -> theta; theta -> ucb; mask -> sel [label=" hard\n constraint"];
+  match -> sel [dir=back]; match -> upd [label=" yes, r_t", weight=10]; match -> skip [label=" no"]; upd -> skip [style=invis];
+  theta:sw -> upd:w [dir=back, color="#c0392b", style=bold, xlabel="next t "];
+  upd -> expl; upd -> ope; base -> ope [label=" compare"];
+}
